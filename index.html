@@ -1,0 +1,345 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Células em Ação</title>
+  <style>
+    body {
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      background: linear-gradient(45deg, #a8edea, #fed6e3);
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      animation: fundoAnimado 10s infinite alternate;
+    }
+    @keyframes fundoAnimado {
+      0% {background-position: 0% 50%;}
+      100% {background-position: 100% 50%;}
+    }
+    h1 {
+      color: #ff69b4;
+      font-size: 48px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    #menuInicial {
+      margin-top: 50px;
+    }
+    .botaoDificuldade {
+      margin: 10px;
+      padding: 15px 30px;
+      font-size: 18px;
+      background: #ffb347;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+      transition: background 0.3s, transform 0.2s;
+    }
+    .botaoDificuldade:hover {
+      background: #ffcc33;
+      transform: scale(1.05);
+    }
+    #jogo {
+      display: none;
+    }
+    #tabuleiro {
+      display: grid;
+      grid-template-columns: repeat(5, 80px);
+      gap: 5px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .celula {
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 24px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      transition: transform 0.3s, background 0.3s;
+    }
+    .celula:hover {
+      transform: scale(1.2);
+    }
+    .saudavel { background: #98fb98; }
+    .danificada { background: #ffe066; }
+    .apoptose { background: #87cefa; }
+    .necrose { background: #ff7f7f; }
+    button {
+      margin: 10px;
+      padding: 12px 25px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #ff69b4;
+      color: white;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #ff1493;
+    }
+    #evento, #status {
+      margin-top: 20px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+    <h1>Células em Ação</h1>
+
+    <div id="menuInicial">
+      <p>Escolha o Nível de Dificuldade:</p>
+      <button class="botaoDificuldade" onclick="iniciarJogo('facil')">Fácil</button>
+      <button class="botaoDificuldade" onclick="iniciarJogo('medio')">Médio</button>
+      <button class="botaoDificuldade" onclick="iniciarJogo('dificil')">Difícil</button>
+    </div>
+
+    <button id="botaoManual" onclick="toggleManual()" style="margin-top: 20px;">📖 Ver Como Jogar</button>
+
+    <div id="comoJogar" style="max-height: 0; overflow: hidden; transition: max-height 0.5s ease; margin-top: 20px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+      <h2>📖 Como Jogar</h2>
+      <p><strong>Objetivo:</strong> Mantenha o máximo de células saudáveis e preserve seus Pontos de Vida!</p>
+      <p><strong>Começo:</strong> Escolha a dificuldade: Fácil, Médio ou Difícil.</p>
+      <p><strong>Estados das Células:</strong><br>
+      - Saudável (verde claro)<br>
+      - Danificada (amarelo)<br>
+      - Apoptose (azul) – morte controlada<br>
+      - Necrose (vermelho) – morte descontrolada</p>
+      <p><strong>Ações Disponíveis:</strong><br>
+      - Reparar Célula<br>
+      - Induzir Apoptose<br>
+      - Impedir Necrose<br>
+      - Sortear Evento</p>
+      <p><strong>Pontuação:</strong> Comece com 20 Pontos de Vida. Evite necroses e infecções para não perder!</p>
+      <p><strong>Como Ganhar:</strong> Mantenha células saudáveis e Pontos de Vida acima de 0.</p>
+    </div>
+
+    <div id="jogo">
+    <div>
+        <button onclick="repararCelula()">Reparar Célula</button>
+        <button onclick="induzirApoptose()">Induzir Apoptose</button>
+        <button onclick="impedirNecrose()">Impedir Necrose</button>
+        <button onclick="sortearEvento()">Sortear Evento</button>
+        <button onclick="reiniciarJogo()">Reiniciar Jogo</button>
+    </div>
+    <div id="status">
+        <strong>Pontos de Vida:</strong> <span id="pontosVida">20</span> |
+        <strong>Rodadas:</strong> <span id="contadorRodadas">0</span> |
+        <strong>Tempo:</strong> <span id="tempoJogo">0s</span>
+    </div>
+    <div id="tabuleiro"></div>
+    <div id="evento"></div>
+    </div>
+
+    <audio id="somAcao" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+    <audio id="somFim" src="https://actions.google.com/sounds/v1/cartoon/concussive_hit_guitar_boing.ogg"></audio>
+
+<script>
+  let pontosVida = 20;
+  let contadorRodadas = 0;
+  let celulas = [];
+  let dificuldade = 'medio';
+  let tempoJogo = 0;
+  let intervaloTempo;
+
+  function iniciarContadorTempo() {
+    intervaloTempo = setInterval(() => {
+      tempoJogo++;
+      document.getElementById('tempoJogo').innerText = tempoJogo + 's';
+    }, 1000);
+  }
+
+  function pararContadorTempo() {
+    clearInterval(intervaloTempo);
+  }
+
+  async function iniciarJogo(nivel) {
+    dificuldade = nivel;
+    document.getElementById('menuInicial').style.display = 'none';
+    document.getElementById('jogo').style.display = 'block';
+    criarTabuleiro();
+    atualizarTabuleiro();
+    iniciarContadorTempo();
+  }
+
+  function tocarSom(tipo) {
+    const som = document.getElementById(tipo);
+    if (som) {
+      som.currentTime = 0;
+      som.play();
+    }
+  }
+
+  function criarTabuleiro() {
+    const tabuleiro = document.getElementById('tabuleiro');
+    tabuleiro.innerHTML = '';
+    celulas = [];
+    for (let i = 0; i < 20; i++) {
+      let tipo = 'saudavel';
+      if (Math.random() < 0.2) tipo = 'danificada';
+      celulas.push(tipo);
+      const celula = document.createElement('div');
+      celula.className = 'celula ' + tipo;
+      celula.innerText = '☺';
+      tabuleiro.appendChild(celula);
+    }
+  }
+
+  function atualizarTabuleiro() {
+    const tabuleiro = document.getElementById('tabuleiro');
+    tabuleiro.childNodes.forEach((celulaDiv, index) => {
+      celulaDiv.className = 'celula ' + celulas[index];
+      celulaDiv.innerText = '☺';
+    });
+    document.getElementById('pontosVida').innerText = pontosVida;
+    document.getElementById('contadorRodadas').innerText = contadorRodadas;
+    verificarFimDeJogo();
+  }
+
+  function chanceSucesso(tipoAcao) {
+    if (dificuldade === 'facil') {
+      return tipoAcao === 'reparar' ? 3 : tipoAcao === 'apoptose' ? 2 : 4;
+    } else if (dificuldade === 'medio') {
+      return tipoAcao === 'reparar' ? 4 : tipoAcao === 'apoptose' ? 3 : 5;
+    } else {
+      return tipoAcao === 'reparar' ? 5 : tipoAcao === 'apoptose' ? 4 : 5;
+    }
+  }
+
+  async function animarDado() {
+    const emojisDado = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+    const evento = document.getElementById('evento');
+    evento.innerText = '🎲 Girando...';
+    for (let i = 0; i < 10; i++) {
+      evento.innerText = emojisDado[Math.floor(Math.random() * 6)];
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  async function repararCelula() {
+    contadorRodadas++;
+    let index = celulas.findIndex(c => c === 'danificada');
+    if (index !== -1) {
+      await animarDado();
+      let dado = Math.ceil(Math.random() * 6);
+      if (dado >= chanceSucesso('reparar')) {
+        celulas[index] = 'saudavel';
+        alert('Sucesso! Célula reparada.');
+      } else {
+        alert('Falhou!');
+      }
+      tocarSom('somAcao');
+      atualizarTabuleiro();
+    } else {
+      alert('Nenhuma célula danificada.');
+    }
+  }
+
+  async function induzirApoptose() {
+    contadorRodadas++;
+    let index = celulas.findIndex(c => c === 'danificada');
+    if (index !== -1) {
+      await animarDado();
+      let dado = Math.ceil(Math.random() * 6);
+      if (dado >= chanceSucesso('apoptose')) {
+        celulas[index] = 'apoptose';
+        alert('Apoptose induzida!');
+      } else {
+        alert('Falhou!');
+      }
+      tocarSom('somAcao');
+      atualizarTabuleiro();
+    }
+  }
+
+  async function impedirNecrose() {
+    contadorRodadas++;
+    let index = celulas.findIndex(c => c === 'danificada');
+    if (index !== -1) {
+      await animarDado();
+      let dado = Math.ceil(Math.random() * 6);
+      if (dado >= chanceSucesso('necrose')) {
+        celulas[index] = 'saudavel';
+        alert('Necrose impedida!');
+      } else {
+        celulas[index] = 'necrose';
+        pontosVida -= 2;
+        alert('Necrose aconteceu!');
+      }
+      tocarSom('somAcao');
+      atualizarTabuleiro();
+    }
+  }
+
+  function sortearEvento() {
+    contadorRodadas++;
+    const eventos = [
+      'Infecção! Perdeu uma célula.',
+      'Radiação! Uma vira necrose.',
+      'Reparo! Curou uma danificada.',
+    ];
+    const evento = eventos[Math.floor(Math.random() * eventos.length)];
+    document.getElementById('evento').innerText = evento;
+
+    let index;
+    if (evento.includes('Infec')) {
+      index = celulas.findIndex(c => c === 'saudavel');
+      if (index !== -1) celulas[index] = 'danificada';
+      pontosVida -= 1;
+    } else if (evento.includes('Radia')) {
+      index = celulas.findIndex(c => c !== 'necrose');
+      if (index !== -1) celulas[index] = 'necrose';
+      pontosVida -= 3;
+    } else if (evento.includes('Reparo')) {
+      index = celulas.findIndex(c => c === 'danificada');
+      if (index !== -1) celulas[index] = 'saudavel';
+      pontosVida += 2;
+    }
+
+    tocarSom('somAcao');
+    atualizarTabuleiro();
+  }
+
+  function verificarFimDeJogo() {
+    if (pontosVida <= 0 || !celulas.includes('saudavel')) {
+      setTimeout(() => {
+        tocarSom('somFim');
+        pararContadorTempo();
+        alert(pontosVida <= 0 ? 'Você Perdeu!' : 'Você Venceu!');
+        reiniciarJogo();
+      }, 500);
+    }
+  }
+
+  function reiniciarJogo() {
+    location.reload();
+  }
+
+  function toggleManual() {
+    const manual = document.getElementById('comoJogar');
+    const botao = document.getElementById('botaoManual');
+    if (manual.style.maxHeight && manual.style.maxHeight !== '0px') {
+      manual.style.maxHeight = '0';
+      botao.innerText = '📖 Ver Como Jogar';
+    } else {
+      manual.style.maxHeight = manual.scrollHeight + 'px';
+      botao.innerText = '❌ Esconder Manual';
+    }
+  }
+</script>
+
+</body>
+</html>
